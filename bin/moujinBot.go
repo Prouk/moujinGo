@@ -10,11 +10,20 @@ type Moujin struct {
 }
 
 func (m *Moujin) GetPlayer(guildId int) *Player {
-	return &m.players[guildId]
+	if len(m.players) == 0 {
+		return nil
+	}
+	for _, player := range m.players {
+		if player.GuildId == guildId {
+			return &player
+		}
+	}
+	return nil
 }
 
 func (m *Moujin) AddGuildPlayer(guildId int, i *discordgo.Interaction) (*Player, error) {
 	var err error
-	m.players[guildId], err = CreatePlayer(guildId, i)
-	return &m.players[guildId], err
+	player, err := CreatePlayer(guildId, i)
+	m.players = append(m.players, player)
+	return &m.players[len(m.players)-1], err
 }

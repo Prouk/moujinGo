@@ -29,6 +29,9 @@ func (Logger) InitLogger(toConsole bool, path string, level int) (Logger, error)
 }
 
 func (l *Logger) PassLog(msg string, level int) {
+	if level <= l.Level {
+		return
+	}
 	currentTime := time.Now()
 	if l.ToConsole {
 		println("\033[32m" + currentTime.Format("2006-01-02 15:04:05") + ` - OK : ` + msg + Reset)

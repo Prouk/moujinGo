@@ -19,6 +19,7 @@ func SetHandlers(session *discordgo.Session, moujin *Moujin) {
 var (
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate, moujin *Moujin){
 		"play": func(s *discordgo.Session, i *discordgo.InteractionCreate, moujin *Moujin) {
+			moujin.Logger.CommentLog(`Play command requested`, 3)
 			guildId, err := strconv.Atoi(i.GuildID)
 			if err != nil {
 				moujin.Logger.ErrorLog(err.Error(), 1)
@@ -28,6 +29,7 @@ var (
 			player := moujin.GetPlayer(guildId)
 			if player == nil {
 				player, err = moujin.AddGuildPlayer(guildId, i.Interaction)
+				player.AddToQueue(url, i.Interaction)
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
@@ -55,8 +57,7 @@ var (
 				})
 			} else {
 				player.AddToQueue(url, i.Interaction)
-				s.
-					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
 						Embeds: []*discordgo.MessageEmbed{

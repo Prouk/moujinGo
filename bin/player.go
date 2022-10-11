@@ -32,8 +32,8 @@ func CreatePlayer(guildId int, i *discordgo.Interaction) (Player, error) {
 
 func (p *Player) AddToQueue(url string, i *discordgo.Interaction) *Player {
 	toQueue := QueueItemInfos{
-		url,
-		i.Member.Nick,
+		Url:    url,
+		Member: i.Member.Nick,
 	}
 	p.Queue = append(p.Queue, toQueue)
 	return p
