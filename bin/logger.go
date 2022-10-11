@@ -29,7 +29,7 @@ func (Logger) InitLogger(toConsole bool, path string, level int) (Logger, error)
 }
 
 func (l *Logger) PassLog(msg string, level int) {
-	if level <= l.Level {
+	if level > l.Level {
 		return
 	}
 	currentTime := time.Now()
@@ -41,7 +41,7 @@ func (l *Logger) PassLog(msg string, level int) {
 }
 
 func (l *Logger) WarningLog(msg string, level int) {
-	if level <= l.Level {
+	if level > l.Level {
 		return
 	}
 	currentTime := time.Now()
@@ -53,7 +53,7 @@ func (l *Logger) WarningLog(msg string, level int) {
 }
 
 func (l *Logger) ErrorLog(msg string, level int) {
-	if level <= l.Level {
+	if level > l.Level {
 		return
 	}
 	currentTime := time.Now()
@@ -65,7 +65,7 @@ func (l *Logger) ErrorLog(msg string, level int) {
 }
 
 func (l *Logger) CommentLog(msg string, level int) {
-	if level <= l.Level {
+	if level > l.Level {
 		return
 	}
 	currentTime := time.Now()
