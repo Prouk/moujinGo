@@ -6,35 +6,105 @@ import (
 )
 
 type Player struct {
-	GuildId   int
-	CommandId int
-	StartedBy string
-	Queue     []QueueItemInfos
+	GuildId     int
+	Interaction *discordgo.Interaction
+	StartedBy   struct {
+		Name string
+		Icon string
+	}
+	Queue          []QueueItemInfos
+	VoiceConection *discordgo.VoiceConnection
 }
 
 type QueueItemInfos struct {
-	Url    string
-	Member string
-}
-
-func CreatePlayer(guildId int, i *discordgo.Interaction) (Player, error) {
-	var player Player
-	var err error
-	player.GuildId = guildId
-	player.StartedBy = i.Member.Nick
-	commandId, err := strconv.Atoi(i.ApplicationCommandData().TargetID)
-	if err != nil {
-		return player, err
-	}
-	player.CommandId = commandId
-	return player, err
+	Url        string
+	MemberName string
+	MessageId  string
 }
 
 func (p *Player) AddToQueue(url string, i *discordgo.Interaction) *Player {
 	toQueue := QueueItemInfos{
-		Url:    url,
-		Member: i.Member.Nick,
+		Url:        url,
+		MemberName: i.Member.User.Username,
+		MessageId:  i.ID,
 	}
 	p.Queue = append(p.Queue, toQueue)
 	return p
+}
+
+func (p *Player) GetEmbed(action string) *discordgo.MessageEmbed {
+	var desc string
+	desc = action
+	if len(p.Queue) > 1 {
+		return &discordgo.MessageEmbed{
+			Title:       "strconv.Itoa(player.CommandId)",
+			URL:         p.Queue[0].Url,
+			Description: desc,
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:  "Current Music By",
+					Value: p.Queue[0].MemberName,
+				},
+				{
+					Name:  "Next Music By",
+					Value: p.Queue[1].MemberName,
+				},
+				{
+					Name:  "Music in queue",
+					Value: strconv.Itoa(len(p.Queue)),
+				},
+			},
+			Footer: &discordgo.MessageEmbedFooter{
+				Text:    "Player Started By : " + p.StartedBy.Name,
+				IconURL: p.StartedBy.Icon,
+			},
+		}
+	} else {
+		return &discordgo.MessageEmbed{
+			Title:       "strconv.Itoa(player.CommandId)",
+			URL:         p.Queue[0].Url,
+			Description: desc,
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:  "Current Music By",
+					Value: p.Queue[0].MemberName,
+				},
+				{
+					Name:  "Music in queue",
+					Value: strconv.Itoa(len(p.Queue)),
+				},
+			},
+			Footer: &discordgo.MessageEmbedFooter{
+				Text:    "Player Started By : " + p.StartedBy.Name,
+				IconURL: p.StartedBy.Icon,
+			},
+		}
+	}
+}
+
+func (p *Player) GetButtons() discordgo.ActionsRow {
+	return discordgo.ActionsRow{
+		Components: []discordgo.MessageComponent{
+			discordgo.Button{
+				CustomID: "pause",
+				Label:    "Pause",
+				Style:    discordgo.SuccessButton,
+			},
+			discordgo.Button{
+				CustomID: "next",
+				Label:    "Next",
+				Style:    discordgo.PrimaryButton,
+			},
+			discordgo.Button{
+				CustomID: "stop",
+				Label:    "Stop",
+				Style:    discordgo.DangerButton,
+			},
+			discordgo.Button{
+				CustomID: "send",
+				Label:    "Send",
+				Style:    discordgo.SecondaryButton,
+			},
+		},
+	}
 }

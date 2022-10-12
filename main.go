@@ -27,6 +27,7 @@ func main() {
 		os.Exit(1)
 	}
 	bin.SetHandlers(moujin.BotSession, &moujin)
+	moujin.BotSession.Identify.Intents = discordgo.IntentsGuildVoiceStates | discordgo.IntentsDirectMessages | discordgo.IntentsGuildWebhooks | discordgo.IntentsGuildMessageReactions | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers | discordgo.IntentsGuildPresences
 	err = moujin.BotSession.Open()
 	if err != nil {
 		moujin.Logger.ErrorLog(err.Error(), 0)
