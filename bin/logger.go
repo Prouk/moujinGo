@@ -23,7 +23,6 @@ func (Logger) InitLogger(toConsole bool, path string, level int) (Logger, error)
 		logger.ToConsole = true
 	} else {
 		logger.File, err = os.Create(path)
-		defer logger.File.Close()
 	}
 	return logger, err
 }
