@@ -108,7 +108,7 @@ var (
 				},
 			})
 			go func() {
-				time.Sleep(5000)
+				time.Sleep(5 * time.Second)
 				s.InteractionResponseDelete(i.Interaction)
 			}()
 			return
