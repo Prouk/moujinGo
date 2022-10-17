@@ -42,4 +42,5 @@ func main() {
 		moujin.Logger.ErrorLog(err.Error(), 0)
 	}
 	moujin.Logger.PassLog("Bot successfully stopped !", 0)
+
 }

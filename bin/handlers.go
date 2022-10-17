@@ -113,6 +113,49 @@ var (
 			}()
 			return
 		},
+		"character": func(s *discordgo.Session, i *discordgo.InteractionCreate, moujin *Moujin) {
+			options := i.ApplicationCommandData().Options
+			dataCenter := options[0].StringValue()
+			name := options[1].StringValue()
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "`Searching character...`",
+				},
+			})
+			ffCharacter, err := GetFfCharacter(dataCenter, name)
+			if err != nil {
+				moujin.Logger.ErrorLog(err.Error(),0)
+			}
+			emptyString := ""
+			s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+				Content: &emptyString,
+				Embeds:     &[]*discordgo.MessageEmbed{&discordgo.MessageEmbed{
+					Title: name,
+					URL: ffCharacter.CharUrl,
+					Description: ffCharacter.Title,
+					Thumbnail: &discordgo.MessageEmbedThumbnail{
+						URL:      ffCharacter.JobImg,
+					},
+					Image: &discordgo.MessageEmbedImage{
+						URL:      ffCharacter.ImgUrl,
+					},
+					Fields:[]*discordgo.MessageEmbedField{
+						{
+							Name: "Grande compagnie",
+							Value: ffCharacter.GrandCompany,
+						},
+						{
+							Name: "Level: ",
+							Value: ffCharacter.Level,
+						},
+					},
+				}},
+			})
+			if err != nil {
+				moujin.Logger.ErrorLog(err.Error(),0)
+			}
+		},
 	}
 
 	componentHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate, moujin *Moujin){
