@@ -1,136 +1,89 @@
 package bin
 
-import (
-	"github.com/bwmarrin/discordgo"
-	"github.com/kkdai/youtube/v2"
-	"strconv"
-	"strings"
-)
+import "github.com/bwmarrin/discordgo"
 
 type Player struct {
-	GuildId     int
-	Interaction *discordgo.Interaction
-	StartedBy   struct {
+	Interaction     *discordgo.Interaction
+	VoiceConnection *discordgo.VoiceConnection
+	Queue           []Music
+	Initiator       struct {
 		Name string
 		Icon string
 	}
-	Queue          []QueueItemInfos
-	VoiceConection *discordgo.VoiceConnection
-	Music          Music
 }
 
-type QueueItemInfos struct {
-	Url        string
-	MemberName string
-	MessageId  string
-}
-
-func (p *Player) AddToQueue(url string, i *discordgo.Interaction) *Player {
-	toQueue := QueueItemInfos{
-		Url:        url,
-		MemberName: i.Member.User.Username,
-		MessageId:  i.ID,
+func (p *Player) AddToQueue(url string, i *discordgo.InteractionCreate) (*Player, error) {
+	var music Music
+	var err error
+	music = Music{
+		Url:      url,
+		Title:    "",
+		Channel:  "",
+		Duration: 0,
+		AddedBy: struct {
+			Name string
+			Icon string
+		}{
+			Name: i.User.Username,
+			Icon: i.User.AvatarURL("24px"),
+		},
 	}
-	p.Queue = append(p.Queue, toQueue)
-	return p
-}
 
-func (p *Player) GetEmbed(action string) *discordgo.MessageEmbed {
-	var desc string
-	desc = action
-	if len(p.Queue) > 1 {
-		return &discordgo.MessageEmbed{
-			Title:       p.Music.Title,
-			URL:         p.Music.Url,
-			Description: p.Music.Channel,
-			Fields: []*discordgo.MessageEmbedField{
-				{
-					Name:  "Current Music By",
-					Value: p.Queue[0].MemberName,
-				},
-				{
-					Name:  "Next Music By",
-					Value: p.Queue[1].MemberName,
-				},
-				{
-					Name:  "Music in queue",
-					Value: strconv.Itoa(len(p.Queue)),
-				},
-			},
-			Footer: &discordgo.MessageEmbedFooter{
-				Text:    "Player Started By : " + p.StartedBy.Name,
-				IconURL: p.StartedBy.Icon,
-			},
-		}
-	} else {
-		return &discordgo.MessageEmbed{
-			Title:       "strconv.Itoa(player.CommandId)",
-			URL:         p.Queue[0].Url,
-			Description: desc,
-			Fields: []*discordgo.MessageEmbedField{
-				{
-					Name:  "Current Music By",
-					Value: p.Queue[0].MemberName,
-				},
-				{
-					Name:  "Music in queue",
-					Value: strconv.Itoa(len(p.Queue)),
-				},
-			},
-			Footer: &discordgo.MessageEmbedFooter{
-				Text:    "Player Started By : " + p.StartedBy.Name,
-				IconURL: p.StartedBy.Icon,
-			},
-		}
-	}
-}
+	p.Queue = append(p.Queue, music)
 
-func (p *Player) GetButtons() discordgo.ActionsRow {
-	return discordgo.ActionsRow{
-		Components: []discordgo.MessageComponent{
-			discordgo.Button{
-				CustomID: "pause",
-				Label:    "Pause",
-				Style:    discordgo.SuccessButton,
+	return p, err
+}
+func (p *Player) GetWaitingEmbed() *[]*discordgo.MessageEmbed {
+	return &[]*discordgo.MessageEmbed{
+		{
+			Type:        "",
+			Title:       "Waiting for a music",
+			Description: "Player started by : " + p.Initiator.Name,
+			Timestamp:   "",
+			Color:       10181046,
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: "Developed by Prouk.",
 			},
-			discordgo.Button{
-				CustomID: "next",
-				Label:    "Next",
-				Style:    discordgo.PrimaryButton,
-			},
-			discordgo.Button{
-				CustomID: "stop",
-				Label:    "Stop",
-				Style:    discordgo.DangerButton,
-			},
-			discordgo.Button{
-				CustomID: "send",
-				Label:    "Send",
-				Style:    discordgo.SecondaryButton,
-			},
+			Image:     nil,
+			Thumbnail: nil,
+			Video:     nil,
+			Provider:  nil,
+			Author:    nil,
+			Fields:    nil,
 		},
 	}
 }
 
-func (p *Player) StreamFirstMusic() error {
-	url := p.Queue[0].Url
-	idIndex := strings.Index(url, "?v=")
-	id := url[idIndex:]
-	playlistIdIndex := strings.Index(id, "&list=")
-	if playlistIdIndex >= 0 {
-		id = id[:playlistIdIndex]
+func (p *Player) GetEmbedComponents() *[]discordgo.MessageComponent {
+	if len(p.Queue) == 0 {
+		return &[]discordgo.MessageComponent{
+			discordgo.Button{
+				Label:    "Quit",
+				Style:    discordgo.DangerButton,
+				Disabled: false,
+				CustomID: "quit",
+			},
+		}
+	} else {
+		return &[]discordgo.MessageComponent{
+			discordgo.Button{
+				Label:    "Pause / Play",
+				Style:    discordgo.SuccessButton,
+				Disabled: false,
+				CustomID: "pause",
+			},
+			discordgo.Button{
+				Label:    "Skip",
+				Style:    discordgo.PrimaryButton,
+				Disabled: false,
+				CustomID: "skip",
+			},
+			discordgo.Button{
+				Label:    "Quit",
+				Style:    discordgo.DangerButton,
+				Disabled: false,
+				CustomID: "quit",
+			},
+		}
 	}
-	client := youtube.Client{}
-	video, err := client.GetVideo(id)
-	if err != nil {
-		return err
-	}
-	formats := video.Formats.WithAudioChannels()
-	_, _, err = client.GetStream(video, &formats[0])
-	p.Music.Title = video.Title
-	p.Music.Channel = video.Author
-	p.Music.Thumbnail = video.Thumbnails[0].URL
-	p.Music.Url = p.Queue[0].Url
-	p.Music.AddedBy = p.Queue[0].MemberName
-	return err
 }

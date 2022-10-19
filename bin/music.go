@@ -1,14 +1,16 @@
 package bin
 
-import (
-	"io/fs"
-)
-
 type Music struct {
-	AddedBy   string
-	Title     string
-	Channel   string
-	Url       string
-	Thumbnail string
-	File      fs.File
+	Url      string
+	Title    string
+	Channel  string
+	Duration int
+	AddedBy  struct {
+		Name string
+		Icon string
+	}
+}
+
+func (m *Music) SetInfosFromWeb() {
+	
 }

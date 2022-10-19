@@ -1,8 +1,8 @@
 package bin
 
 import (
+	"fmt"
 	"github.com/bwmarrin/discordgo"
-	"strconv"
 	"time"
 )
 
@@ -27,91 +27,71 @@ func SetHandlers(session *discordgo.Session, moujin *Moujin) {
 var (
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate, moujin *Moujin){
 		"play": func(s *discordgo.Session, i *discordgo.InteractionCreate, moujin *Moujin) {
-			guildId, err := strconv.Atoi(i.GuildID)
-			if err != nil {
-				moujin.Logger.ErrorLog(err.Error(), 1)
-			}
 			options := i.ApplicationCommandData().Options
 			url := options[0].StringValue()
-			player, playerIndex := moujin.GetPlayer(guildId)
-			if player == nil {
-				if err != nil {
-					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-						Type: discordgo.InteractionResponseChannelMessageWithSource,
-						Data: &discordgo.InteractionResponseData{
-							Content: "`Error joining channel`",
-						},
-					})
-					return
-				}
-				player, err = moujin.AddGuildPlayer(guildId, i.Interaction)
-				player.AddToQueue(url, i.Interaction)
-				err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Embeds:     []*discordgo.MessageEmbed{player.GetEmbed("Player Started")},
-						Components: []discordgo.MessageComponent{player.GetButtons()},
-					},
-				})
-				if err != nil {
-					moujin.Logger.ErrorLog(err.Error(), 2)
-				}
-			} else {
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content: "`Adding Song to Queue ...`",
-					},
-				})
-				moujin.players[playerIndex].Queue = player.AddToQueue(url, i.Interaction).Queue
-				_, err = s.InteractionResponseEdit(player.Interaction, &discordgo.WebhookEdit{
-					Embeds: &[]*discordgo.MessageEmbed{player.GetEmbed("Music Added")},
-				})
-				if err != nil {
-					moujin.Logger.ErrorLog(err.Error(), 2)
-				}
-				s.InteractionResponseDelete(i.Interaction)
-			}
-		},
-		"join": func(s *discordgo.Session, i *discordgo.InteractionCreate, moujin *Moujin) {
-			options := i.ApplicationCommandData().Options
-			voiceChannel := options[0].ChannelValue(s)
-			channel, err := s.ChannelVoiceJoin(i.GuildID, voiceChannel.ID, false, true)
+			player, err := moujin.GetPlayer(i, url)
 			if err != nil {
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
-						Content: "`Error joining channel`",
+						Content: fmt.Sprintf("`%s`", err.Error()),
 					},
 				})
+				go DeleteInteractionResp(s, i, 5*time.Second)
 				return
-			}
-			if len(moujin.Presences) == 0 {
-				moujin.Presences = append(moujin.Presences, Presence{
-					GuildId:         i.GuildID,
-					VoiceConnection: channel,
-				})
-			} else {
-				for index, presence := range moujin.Presences {
-					if presence.GuildId == i.GuildID {
-						moujin.Presences[index] = Presence{
-							GuildId:         i.GuildID,
-							VoiceConnection: channel,
-						}
-					}
-				}
 			}
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
-					Content: "`Channel " + voiceChannel.Name + " joined`",
+					Content: fmt.Sprintf("`%s`", err.Error()),
 				},
 			})
-			go func() {
-				time.Sleep(5 * time.Second)
-				s.InteractionResponseDelete(i.Interaction)
-			}()
-			return
+			player.AddToQueue(url, i)
+		},
+		"join": func(s *discordgo.Session, i *discordgo.InteractionCreate, moujin *Moujin) {
+			var err error
+			options := i.ApplicationCommandData().Options
+			voiceChannel := options[0].ChannelValue(s)
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "`Joining the channel...`",
+				},
+			})
+			moujin.Logger.WarningLog("am there", 0)
+			channel, err := s.ChannelVoiceJoin(i.GuildID, voiceChannel.ID, false, true)
+			moujin.Logger.WarningLog("am there 2", 0)
+			if err != nil {
+				moujin.Logger.WarningLog("wtf", 0)
+				moujin.Logger.ErrorLog(err.Error(), 0)
+				error := "`Error joining the channel...`"
+				s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+					Content: &error,
+				})
+				go DeleteInteractionResp(s, i, 5*time.Second)
+				return
+			}
+			moujin.Logger.WarningLog("am there 3", 0)
+			p, err := moujin.SetPlayer(i, channel)
+			moujin.Logger.WarningLog("am there 4", 0)
+			if err != nil {
+				moujin.Logger.ErrorLog(err.Error(), 0)
+				error := "`Could not set the player`"
+				s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+					Content: &error,
+				})
+				go DeleteInteractionResp(s, i, 5*time.Second)
+				return
+			}
+			moujin.Logger.WarningLog("am there 5", 0)
+			_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+				Embeds:     p.GetWaitingEmbed(),
+				Components: p.GetEmbedComponents(),
+			})
+			moujin.Logger.WarningLog("am there 6", 0)
+			if err != nil {
+				moujin.Logger.ErrorLog(err.Error(), 0)
+			}
 		},
 		"character": func(s *discordgo.Session, i *discordgo.InteractionCreate, moujin *Moujin) {
 			options := i.ApplicationCommandData().Options
@@ -125,56 +105,49 @@ var (
 			})
 			ffCharacter, err := GetFfCharacter(dataCenter, name)
 			if err != nil {
-				moujin.Logger.ErrorLog(err.Error(),0)
+				moujin.Logger.ErrorLog(err.Error(), 0)
 			}
 			emptyString := ""
 			s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 				Content: &emptyString,
-				Embeds:     &[]*discordgo.MessageEmbed{&discordgo.MessageEmbed{
-					Title: name,
-					URL: ffCharacter.CharUrl,
+				Embeds: &[]*discordgo.MessageEmbed{&discordgo.MessageEmbed{
+					Title:       name,
+					URL:         ffCharacter.CharUrl,
 					Description: ffCharacter.Title,
 					Thumbnail: &discordgo.MessageEmbedThumbnail{
-						URL:      ffCharacter.JobImg,
+						URL: ffCharacter.JobImg,
 					},
 					Image: &discordgo.MessageEmbedImage{
-						URL:      ffCharacter.ImgUrl,
+						URL: ffCharacter.ImgUrl,
 					},
-					Fields:[]*discordgo.MessageEmbedField{
+					Fields: []*discordgo.MessageEmbedField{
 						{
-							Name: "Grande compagnie",
+							Name:  "Grande compagnie",
 							Value: ffCharacter.GrandCompany,
 						},
 						{
-							Name: "Level: ",
+							Name:  "Level: ",
 							Value: ffCharacter.Level,
 						},
+					},
+					Footer: &discordgo.MessageEmbedFooter{
+						Text: "Developed by Chanours.",
 					},
 				}},
 			})
 			if err != nil {
-				moujin.Logger.ErrorLog(err.Error(),0)
+				moujin.Logger.ErrorLog(err.Error(), 0)
 			}
 		},
 	}
 
 	componentHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate, moujin *Moujin){
 		"pause": func(s *discordgo.Session, i *discordgo.InteractionCreate, moujin *Moujin) {
-			guildId, err := strconv.Atoi(i.GuildID)
-			if err != nil {
-				moujin.Logger.ErrorLog(err.Error(), 1)
-			}
-			player, _ := moujin.GetPlayer(guildId)
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "`Pausing Music ...`",
-				},
-			})
-			_, err = s.InteractionResponseEdit(player.Interaction, &discordgo.WebhookEdit{
-				Embeds: &[]*discordgo.MessageEmbed{player.GetEmbed("Music Paused")},
-			})
-			s.InteractionResponseDelete(i.Interaction)
 		},
 	}
 )
+
+func DeleteInteractionResp(s *discordgo.Session, i *discordgo.InteractionCreate, t time.Duration) {
+	time.Sleep(t)
+	s.InteractionResponseDelete(i.Interaction)
+}

@@ -1,43 +1,55 @@
 package bin
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"errors"
+	"github.com/bwmarrin/discordgo"
+)
 
 type Moujin struct {
 	BotSession *discordgo.Session
-	Presences  []Presence
-	players    []Player
+	Players    []*Player
 	Logger     Logger
 	Config     Config
 }
 
-func (m *Moujin) GetPlayer(guildId int) (*Player, int) {
-	if len(m.players) == 0 {
-		return nil, -1
+func (m *Moujin) SetPlayer(i *discordgo.InteractionCreate, channel *discordgo.VoiceConnection) (*Player, error) {
+	var p *Player
+	var err error
+
+	for index, player := range m.Players {
+		if player.Interaction.GuildID == i.GuildID {
+			p = m.Players[index]
+		}
+		p.VoiceConnection = channel
+		return p, err
 	}
-	for index, player := range m.players {
-		if player.GuildId == guildId {
-			return &player, index
+	if p == nil {
+		p = &Player{
+			Interaction:     nil,
+			VoiceConnection: channel,
+			Queue:           nil,
+			Initiator: struct {
+				Name string
+				Icon string
+			}{
+				Name: i.User.Username,
+				Icon: i.User.AvatarURL("24px"),
+			},
 		}
 	}
-	return nil, -1
+	return p, err
 }
 
-func (m *Moujin) AddGuildPlayer(guildId int, i *discordgo.Interaction) (*Player, error) {
+func (m *Moujin) GetPlayer(i *discordgo.InteractionCreate, url string) (*Player, error) {
+	var p *Player
 	var err error
-	player, err := CreatePlayer(guildId, i)
-	m.players = append(m.players, player)
-	return &m.players[len(m.players)-1], err
-}
-
-func CreatePlayer(guildId int, i *discordgo.Interaction) (Player, error) {
-	var player Player
-	var err error
-	player.GuildId = guildId
-	player.Interaction = i
-	player.StartedBy.Name = i.Member.User.Username
-	player.StartedBy.Icon = i.Member.User.AvatarURL("24px")
-	if err != nil {
-		return player, err
+	for index, player := range m.Players {
+		if player.Interaction.GuildID == i.GuildID {
+			p = m.Players[index]
+		}
 	}
-	return player, err
+	if p == nil {
+		err = errors.New("Need to be in a voice channel first")
+	}
+	return p, err
 }
